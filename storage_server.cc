@@ -93,6 +93,22 @@ public:
 
   Status GetUserAccount(ServerContext* context, const StorageRequest* request, ServerWriter<tr140::StorageService::UserAccount>* reply) override { return Status::OK; }
   Status SetUserAccount(ServerContext* context, ServerReader<tr140::StorageService::UserAccount>* request, StorageReply* reply) override {
+    // A client-side streaming RPC
+    // ServerReader is not const. why?
+    
+    tr140::StorageService::UserAccount account;    
+    while (request->Read(&account)) {
+      int i;
+      for (i=0; i<device_.user_account_size(); i++) {
+        if (account.username() == device_.user_account(i).username()) {
+          break; // found an existing user.
+        }
+      }
+      if (i==device_.user_account_size()) {
+        *device_.add_user_account() = account;
+      }
+      gpr_log(GPR_DEBUG, "%d name %s user_account_size %d", i, account.username().c_str(), device_.user_account_size());
+    }
     return Status::OK;
   }
 
@@ -115,6 +131,8 @@ public:
   Status SetHTTPSServer(ServerContext* context, const tr140::StorageService::HTTPSServer* request, StorageReply* reply) override { return Status::OK; }
 
   Status GetPhysicalMedium(ServerContext* context, const StorageRequest* request, ServerWriter<tr140::StorageService::PhysicalMedium>* reply) override {
+    //A server-side streaming RPC
+    
     for (int i=0; i<device_.physical_medium_size(); i++) {
       device_.mutable_physical_medium(i)->set_uptime(std::chrono::duration_cast<std::chrono::seconds>(system_clock::now()-start_time_).count());
 
@@ -126,7 +144,9 @@ public:
   }
   
   Status SetPhysicalMedium(ServerContext* context, ServerReader<tr140::StorageService::PhysicalMedium>* request, StorageReply* reply) override {
+    // A client-side streaming RPC
     // ServerReader is not const. why?
+    
     tr140::StorageService::PhysicalMedium medium;
     int i = 0;
     while (request->Read(&medium)) {
@@ -160,12 +180,21 @@ public:
   Status SetQuota(ServerContext* context, const tr140::StorageService::LogicalVolume::Folder::Quota* request, StorageReply* reply) override { return Status::OK; }
 
   Status GetMatchedUserAccout(ServerContext* context, ServerReaderWriter<tr140::StorageService::UserAccount,tr140::StorageService::UserGroup>* stream) override {
+    // A bidirectional streaming RPC
     // rpc GetMatchedUserAccout(stream tr140.StorageService.UserGroup) returns (stream tr140.StorageService.UserAccount) {} // .{i}.
     // grpc::ServerReaderWriter< W, R > Class Template 
-    tr140::StorageService::UserAccount account;
+    // grpc::ClientReaderWriter< W, R > Class Template
+    // ServerReaderWriter<tr140::StorageService::UserAccount,tr140::StorageService::UserGroup>* stream
+    
     tr140::StorageService::UserGroup group;
     while (stream->Read(&group)) { 
-      stream->Write(account);
+      gpr_log(GPR_DEBUG, "group %s user_account_size %d", group.group_name().c_str(),device_.user_account_size());
+      for (int i=0; i<device_.user_account_size(); i++) {
+        if (device_.user_account(i).user_group_participation() == group.group_name()) {
+          stream->Write(device_.user_account(i));
+        }
+      }
+      //std::this_thread::sleep_for(std::chrono::milliseconds(1001)); 
     }
     return Status::OK;
   }
