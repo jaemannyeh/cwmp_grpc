@@ -12,6 +12,10 @@ GRPC_PB_CC_FILES := $(patsubst %.proto, %.grpc.pb.cc, $(notdir $(PROTO_FILES)))
 PB_O_FILES := $(patsubst %.proto, %.pb.o, $(notdir $(PROTO_FILES)))
 GRPC_PB_O_FILES := $(patsubst %.proto, %.grpc.pb.o, $(notdir $(PROTO_FILES)))
 
+.PHONY: default clean show
+
+default: storage_server storage_client
+
 pb_cc: $(PB_CC_FILES) $(GRPC_PB_CC_FILES)
 
 pb_obj: $(PB_O_FILES) $(GRPC_PB_O_FILES)
@@ -25,8 +29,11 @@ pb_obj: $(PB_O_FILES) $(GRPC_PB_O_FILES)
 storage_server: $(PB_O_FILES) $(GRPC_PB_O_FILES) storage_server.o
 	$(CXX) $^ $(LDFLAGS) -o $@
 	
+storage_client: $(PB_O_FILES) $(GRPC_PB_O_FILES) storage_client.o
+	$(CXX) $^ $(LDFLAGS) -o $@
+
 clean:
-	-rm *.pb.cc *.pb.h *.o
+	-rm *.pb.cc *.pb.h *.o *.dat storage_server storage_client
 	
 show:
 	@echo PROTO_FILES = $(PROTO_FILES)

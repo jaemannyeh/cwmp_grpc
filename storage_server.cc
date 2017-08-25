@@ -53,10 +53,31 @@ static std::string get_localtime() {
 class StorageImpl final : public Storage::Service { // service Storage {}
 public:
   explicit StorageImpl(tr140::StorageService &device) : device_(device) {
+    start_time_ = system_clock::now();
+    
+    device_.set_enable(true); // bool
+    
+    if (device.alias().empty()) {
+      device_.set_alias("StorageDevice");
+    }
+    
+    if (device_.physical_medium_size()==0) {
+      device_.add_physical_medium(); // StorageService.{i}.PhysicalMedium.{i}.
+      device_.add_physical_medium(); // StorageService.{i}.PhysicalMedium.{i}.
+    }
   }
 
-  Status GetStorageService(ServerContext* context, const StorageRequest* request, tr140::StorageService* reply) override { return Status::OK; }
-  Status SetStorageService(ServerContext* context, const tr140::StorageService* request, StorageReply* reply) override { return Status::OK; }
+  Status GetStorageService(ServerContext* context, const StorageRequest* request, tr140::StorageService* reply) override {
+    reply->set_enable(device_.enable());
+    reply->set_alias(device_.alias());
+    return Status::OK;
+  }
+  
+  Status SetStorageService(ServerContext* context, const tr140::StorageService* request, StorageReply* reply) override {
+    device_.set_enable(request->enable());
+    device_.set_alias(request->alias());
+    return Status::OK;
+  }
 
   Status GetCapabilities(ServerContext* context, const StorageRequest* request, tr140::StorageService::Capabilities* reply) override { return Status::OK; }
   Status SetCapabilities(ServerContext* context, const tr140::StorageService::Capabilities* request, StorageReply* reply) override { return Status::OK; }
@@ -88,8 +109,28 @@ public:
   Status GetHTTPSServer(ServerContext* context, const StorageRequest* request, tr140::StorageService::HTTPSServer* reply) override { return Status::OK; }
   Status SetHTTPSServer(ServerContext* context, const tr140::StorageService::HTTPSServer* request, StorageReply* reply) override { return Status::OK; }
 
-  Status GetPhysicalMedium(ServerContext* context, const StorageRequest* request, ServerWriter<tr140::StorageService::PhysicalMedium>* reply) override { return Status::OK; }
-  Status SetPhysicalMedium(ServerContext* context, ServerReader<tr140::StorageService::PhysicalMedium>* request, StorageReply* reply) override { return Status::OK; }
+  Status GetPhysicalMedium(ServerContext* context, const StorageRequest* request, ServerWriter<tr140::StorageService::PhysicalMedium>* reply) override {
+    for (int i=0; i<device_.physical_medium_size(); i++) {
+      device_.mutable_physical_medium(i)->set_uptime(std::chrono::duration_cast<std::chrono::seconds>(system_clock::now()-start_time_).count());
+
+      reply->Write(device_.physical_medium(i));
+      
+      std::this_thread::sleep_for(std::chrono::milliseconds(1001));      
+    }    
+    return Status::OK;
+  }
+  
+  Status SetPhysicalMedium(ServerContext* context, ServerReader<tr140::StorageService::PhysicalMedium>* request, StorageReply* reply) override {
+    tr140::StorageService::PhysicalMedium medium;
+    int i = 0;
+    while (request->Read(&medium)) {
+      if (i>=device_.physical_medium_size()) {
+        device_.add_physical_medium();
+      }
+      device_.mutable_physical_medium(i++)->set_alias(medium.alias());
+    }
+    return Status::OK;
+  }
 
   Status GetSMART(ServerContext* context, const StorageRequest* request, tr140::StorageService::PhysicalMedium::SMART* reply) override { return Status::OK; }
   Status SetSMART(ServerContext* context, const tr140::StorageService::PhysicalMedium::SMART* request, StorageReply* reply) override { return Status::OK; }
@@ -129,9 +170,9 @@ static int BuildAndRun(tr140::StorageService &device) {
   std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
   gpr_log(GPR_DEBUG, "Server listening on %s", server_address.c_str());     
 
-  //while (device.device_info().process_status().process(0).state().compare("SetShutdown")!=0) {  // device_.device_info().process_status().process_size() > 0
-    //std::this_thread::sleep_for(std::chrono::seconds(2));
-  //}
+  while (device.enable()==true) {
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+  }
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
   
