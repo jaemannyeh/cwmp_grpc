@@ -75,6 +75,7 @@ public:
   
   Status SetStorageService(ServerContext* context, const tr140::StorageService* request, StorageReply* reply) override {
     device_.set_enable(request->enable());
+    gpr_log(GPR_DEBUG, "%s device_.enable %d ", __FUNCTION__, device_.enable()); 
     device_.set_alias(request->alias());
     return Status::OK;
   }
@@ -86,10 +87,14 @@ public:
   Status SetNetInfo(ServerContext* context, const tr140::StorageService::NetInfo* request, StorageReply* reply) override { return Status::OK; }
 
   Status GetUserGroup(ServerContext* context, const StorageRequest* request, ServerWriter<tr140::StorageService::UserGroup>* reply) override { return Status::OK; }
-  Status SetUserGroup(ServerContext* context, ServerReader<tr140::StorageService::UserGroup>* request, StorageReply* reply) override { return Status::OK; }
+  Status SetUserGroup(ServerContext* context, ServerReader<tr140::StorageService::UserGroup>* request, StorageReply* reply) override {
+    return Status::OK;
+  }
 
   Status GetUserAccount(ServerContext* context, const StorageRequest* request, ServerWriter<tr140::StorageService::UserAccount>* reply) override { return Status::OK; }
-  Status SetUserAccount(ServerContext* context, ServerReader<tr140::StorageService::UserAccount>* request, StorageReply* reply) override { return Status::OK; }
+  Status SetUserAccount(ServerContext* context, ServerReader<tr140::StorageService::UserAccount>* request, StorageReply* reply) override {
+    return Status::OK;
+  }
 
   Status GetNetworkServer(ServerContext* context, const StorageRequest* request, tr140::StorageService::NetworkServer* reply) override { return Status::OK; }
   Status SetNetworkServer(ServerContext* context, const tr140::StorageService::NetworkServer* request, StorageReply* reply) override { return Status::OK; }
@@ -121,6 +126,7 @@ public:
   }
   
   Status SetPhysicalMedium(ServerContext* context, ServerReader<tr140::StorageService::PhysicalMedium>* request, StorageReply* reply) override {
+    // ServerReader is not const. why?
     tr140::StorageService::PhysicalMedium medium;
     int i = 0;
     while (request->Read(&medium)) {
@@ -152,6 +158,17 @@ public:
 
   Status GetQuota(ServerContext* context, const StorageRequest* request, tr140::StorageService::LogicalVolume::Folder::Quota* reply) override { return Status::OK; }
   Status SetQuota(ServerContext* context, const tr140::StorageService::LogicalVolume::Folder::Quota* request, StorageReply* reply) override { return Status::OK; }
+
+  Status GetMatchedUserAccout(ServerContext* context, ServerReaderWriter<tr140::StorageService::UserAccount,tr140::StorageService::UserGroup>* stream) override {
+    // rpc GetMatchedUserAccout(stream tr140.StorageService.UserGroup) returns (stream tr140.StorageService.UserAccount) {} // .{i}.
+    // grpc::ServerReaderWriter< W, R > Class Template 
+    tr140::StorageService::UserAccount account;
+    tr140::StorageService::UserGroup group;
+    while (stream->Read(&group)) { 
+      stream->Write(account);
+    }
+    return Status::OK;
+  }
 
 private:
   tr140::StorageService &device_; // message StorageService {}

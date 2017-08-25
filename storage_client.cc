@@ -63,7 +63,7 @@ public:
     gpr_log(GPR_DEBUG, "enable %d alias %s", device.enable(), device.alias().c_str()); 
   }
 
-  void SetStorageService(int shutdown) {
+  void SetStorageService(bool shutdown=false) {
     ClientContext context;
     tr140::StorageService device; // request
     StorageReply reply;
@@ -84,7 +84,7 @@ public:
 
     std::unique_ptr<ClientReader<tr140::StorageService::PhysicalMedium>> stream_rx(stub_->GetPhysicalMedium(&context, request));  
     while (stream_rx->Read(&medium)) {
-      gpr_log(GPR_DEBUG, "uptime %d alias %s", medium.uptime(), medium.alias().c_str());               
+      gpr_log(GPR_DEBUG, "uptime %d alias %s # A server-side streaming RPC", medium.uptime(), medium.alias().c_str());               
     }
 
     Status status = stream_rx->Finish();
@@ -95,6 +95,7 @@ public:
   }  
   
   void SetPhysicalMedium() {
+    // A client-side streaming RPC
     ClientContext context;
     tr140::StorageService::PhysicalMedium medium; // request
     StorageReply reply;
@@ -129,16 +130,14 @@ int RunClient(int mode) {
     return 0;
   } 
 
-  while (mode--) {
-    client.GetStorageService();
-    
-    client.SetStorageService(false); // true will shutdown the server.
-    
-    client.GetPhysicalMedium();
-    
-    client.SetPhysicalMedium();
-  }
+  client.GetStorageService();
   
+  client.SetStorageService();
+  
+  client.GetPhysicalMedium();
+  
+  client.SetPhysicalMedium();
+
   return 0;
 }
 

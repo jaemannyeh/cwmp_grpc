@@ -258,4 +258,5 @@ service Storage {
   rpc GetQuota(StorageRequest) returns (tr140.StorageService.LogicalVolume.Folder.Quota) {}
   rpc SetQuota(tr140.StorageService.LogicalVolume.Folder.Quota) returns (StorageReply) {}
 
+  rpc GetMatchedUserAccout(stream tr140.StorageService.UserGroup) returns (stream tr140.StorageService.UserAccount) {} // .{i}.
 }
