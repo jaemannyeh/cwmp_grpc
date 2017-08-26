@@ -85,15 +85,17 @@ public:
     
     std::unique_ptr<ClientWriter<tr140::StorageService::UserAccount>> stream_tx(stub_->SetUserAccount(&context, &reply));
     
-    account.set_username("Peter"); account.set_user_group_participation("McKinney");
+    account.set_username("Tom"); account.set_user_group_participation("McKinney");
     stream_tx->Write(account);
-    account.set_username("Matthew"); account.set_user_group_participation("McKinney");
+    account.set_username("John"); account.set_user_group_participation("McKinney");
     stream_tx->Write(account);
-    account.set_username("Philip"); account.set_user_group_participation("Dallas");
+    account.set_username("Bob"); account.set_user_group_participation("Dallas");
     stream_tx->Write(account);
-    account.set_username("Andrew"); account.set_user_group_participation("Dallas");
+    account.set_username("Edie"); account.set_user_group_participation("Dallas");
     stream_tx->Write(account);
-    account.set_username("Nathanael"); account.set_user_group_participation("Dallas");
+    account.set_username("Linn"); account.set_user_group_participation("Dallas");
+    stream_tx->Write(account);
+    account.set_username("Joe"); account.set_user_group_participation("Houston");
     stream_tx->Write(account);
     
     stream_tx->WritesDone();
@@ -174,7 +176,7 @@ public:
     
     tr140::StorageService::UserAccount account;
     while (stream_tx_rx->Read(&account)) {
-      gpr_log(GPR_DEBUG, "%s", account.username().c_str());               
+      gpr_log(GPR_DEBUG, "%s %s", account.username().c_str(), account.user_group_participation().c_str());
     }
     
     transmitter.join();
@@ -190,7 +192,7 @@ private:
 };
 
 int RunClient(int mode) {
-  
+
   StorageClient client(grpc::CreateChannel("localhost:50051",grpc::InsecureChannelCredentials()));
 
   if (mode == 0) {

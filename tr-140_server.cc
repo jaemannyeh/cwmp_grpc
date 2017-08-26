@@ -188,7 +188,7 @@ public:
     
     tr140::StorageService::UserGroup group;
     while (stream->Read(&group)) { 
-      gpr_log(GPR_DEBUG, "group %s user_account_size %d", group.group_name().c_str(),device_.user_account_size());
+      //gpr_log(GPR_DEBUG, "group %s user_account_size %d", group.group_name().c_str(),device_.user_account_size());
       for (int i=0; i<device_.user_account_size(); i++) {
         if (device_.user_account(i).user_group_participation() == group.group_name()) {
           stream->Write(device_.user_account(i));
@@ -210,7 +210,9 @@ static int BuildAndRun(tr140::StorageService &device) {
   StorageImpl service(device); // service Storage {}
   
   ServerBuilder builder;
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+  
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials()); // InsecureChannelCredentials
+
   builder.RegisterService(&service);
   
   std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
@@ -256,7 +258,6 @@ static int RunServer() {
   
   return 0;
 }
-
 
 int main(int argc, char** argv) {
   gpr_set_log_verbosity(GPR_LOG_SEVERITY_DEBUG); // GPR_LOG_SEVERITY_DEBUG GPR_LOG_SEVERITY_INFO GPR_LOG_SEVERITY_ERROR  
