@@ -54,7 +54,10 @@ public:
   }
 
   Status GetDevice(ServerContext* context, const BoardRequest* request, tr106::Device* reply) override { return Status::OK; }
-  Status SetDevice(ServerContext* context, const tr106::Device* request, BoardReply* reply) override { return Status::OK; }
+  Status SetDevice(ServerContext* context, const tr106::Device* request, BoardReply* reply) override {
+    device_.set_device_summary(request->device_summary());
+    return Status::OK;
+  }
 
   Status GetServices(ServerContext* context, const BoardRequest* request, tr106::Device::Services* reply) override { return Status::OK; }
   Status SetServices(ServerContext* context, const tr106::Device::Services* request, BoardReply* reply) override { return Status::OK; }
@@ -77,7 +80,11 @@ public:
   Status GetConfig(ServerContext* context, const BoardRequest* request, tr106::Device::Config* reply) override { return Status::OK; }
   Status SetConfig(ServerContext* context, const tr106::Device::Config* request, BoardReply* reply) override { return Status::OK; }
 
-  Status GetTime(ServerContext* context, const BoardRequest* request, tr106::Device::Time* reply) override { return Status::OK; }
+  Status GetTime(ServerContext* context, const BoardRequest* request, tr106::Device::Time* reply) override {
+    reply->set_current_local_time(get_localtime());    
+    return Status::OK;
+  }
+    
   Status SetTime(ServerContext* context, const tr106::Device::Time* request, BoardReply* reply) override { return Status::OK; }
 
   Status GetUserInterface(ServerContext* context, const BoardRequest* request, tr106::Device::UserInterface* reply) override {
@@ -124,9 +131,65 @@ private:
   tr106::Device &device_; // message Device {}
   std::chrono::system_clock::time_point start_time_;
 };
- 
+
+static int BuildAndRun(tr106::Device &device) {
+  std::string server_address("0.0.0.0:50051");
+
+  BoardImpl service(device); // service Board {}
+  
+  ServerBuilder builder;
+  
+  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials()); // InsecureChannelCredentials
+
+  builder.RegisterService(&service);
+  
+  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+  gpr_log(GPR_DEBUG, "Server listening on %s", server_address.c_str());     
+
+  device.clear_device_summary();
+  while (device.device_summary().compare("shutdown")!=0) {
+    std::this_thread::sleep_for(std::chrono::seconds(2));
+  }
+
+  //std::this_thread::sleep_for(std::chrono::seconds(2));
+  
+  server->Shutdown(); // //server->GetHealthCheckService();   //server->Wait();
+
+  return 0;
+}
+
+static int RunServer() {
+  std::string data_file_name(__FILE__);
+  data_file_name.erase(data_file_name.rfind("."));  
+  data_file_name += ".dat";
+
+  tr106::Device device; // package tr106; // message Device {}
+
+  std::fstream input(data_file_name.c_str(), std::ios::in | std::ios::binary); // % hexdump -C Board.dat 
+  if (!input) {
+    std::cout << data_file_name << ": File not found. BOOSTRAP" << std::endl;
+    //vice.mutable_device_config()->set_persistent_data("BOOSTRAP");
+  } else if (!device.ParseFromIstream(&input)) {
+    std::cerr << "Failed to parse device data. BOOSTRAP" << std::endl;
+    //vice.mutable_device_config()->set_persistent_data("BOOSTRAP");    
+    return -1;
+  } else {
+    // BOOT, not BOOTSTRAP
+  }
+  
+  BuildAndRun(device);
+  
+  std::fstream output(data_file_name.c_str(), std::ios::out | std::ios::trunc | std::ios::binary);
+  if (!device.SerializeToOstream(&output)) {
+    std::cerr << "Failed to write device data." << std::endl;
+    return -1;
+  }   
+  
+  return 0;
+}
+
 int main(int argc, char** argv) {
   gpr_set_log_verbosity(GPR_LOG_SEVERITY_DEBUG); // GPR_LOG_SEVERITY_DEBUG GPR_LOG_SEVERITY_INFO GPR_LOG_SEVERITY_ERROR  
-  //TBD;
+  RunServer();
   return 0;
 }
