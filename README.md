@@ -1,5 +1,22 @@
 # cwmp_grpc
 
+gRPC server and client implementations for CWMP. 
+
+https://www.broadband-forum.org provides CWMP xml files.
+
+    tr-069-1-0-0-full.xml
+    tr-098-1-8-0-full.xml
+    tr-104-2-0-0-full.xml
+    tr-106-1-2-0-full.xml
+    tr-135-1-4-0-full.xml
+    tr-140-1-3-0-full.xml
+    tr-196-2-1-0-full.xml
+
+[cwmp_xml_to_proto](https://github.com/jaemannyeh/cwmp_xml_to_proto) generates CWMP proto files using CWMP xml files. 
+
+    tr-140-1-3-0-full.proto
+    tr-140-1-3-0-full.methods
+
 Have a look at the files, and use the terminal to build them:
 
     $ make clean
