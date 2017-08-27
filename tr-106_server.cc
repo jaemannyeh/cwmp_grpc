@@ -29,6 +29,9 @@ using grpc::ServerReaderWriter;
 using grpc::ServerWriter;
 using grpc::Status;
 
+using grpc::ServerAsyncResponseWriter; // using grpc::ClientAsyncResponseReader;
+using grpc::ServerCompletionQueue; // using grpc::CompletionQueue;
+
 using std::chrono::system_clock;
 
 using tr106::Device; // package tr106; // message Device {}
@@ -53,7 +56,12 @@ public:
     start_time_ = system_clock::now();
   }
 
-  Status GetDevice(ServerContext* context, const BoardRequest* request, tr106::Device* reply) override { return Status::OK; }
+  Status GetDevice(ServerContext* context, const BoardRequest* request, tr106::Device* reply) override {
+    gpr_log(GPR_DEBUG, "%s", __FUNCTION__);     
+    reply->set_device_summary(__FILE__);
+    return Status::OK;
+  }
+  
   Status SetDevice(ServerContext* context, const tr106::Device* request, BoardReply* reply) override {
     device_.set_device_summary(request->device_summary());
     return Status::OK;
@@ -68,7 +76,12 @@ public:
   Status GetPerformanceDiagnostic(ServerContext* context, const BoardRequest* request, tr106::Device::Capabilities::PerformanceDiagnostic* reply) override { return Status::OK; }
   Status SetPerformanceDiagnostic(ServerContext* context, const tr106::Device::Capabilities::PerformanceDiagnostic* request, BoardReply* reply) override { return Status::OK; }
 
-  Status GetDeviceInfo(ServerContext* context, const BoardRequest* request, tr106::Device::DeviceInfo* reply) override { return Status::OK; }
+  Status GetDeviceInfo(ServerContext* context, const BoardRequest* request, tr106::Device::DeviceInfo* reply) override {
+    gpr_log(GPR_DEBUG, "%s", __FUNCTION__);   
+    reply->set_up_time(std::chrono::duration_cast<std::chrono::seconds>(system_clock::now()-start_time_).count()); // elapsed time
+    return Status::OK;
+  }
+  
   Status SetDeviceInfo(ServerContext* context, const tr106::Device::DeviceInfo* request, BoardReply* reply) override { return Status::OK; }
 
   Status GetManagementServer(ServerContext* context, const BoardRequest* request, tr106::Device::ManagementServer* reply) override { return Status::OK; }
@@ -146,14 +159,14 @@ static int BuildAndRun(tr106::Device &device) {
   std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
   gpr_log(GPR_DEBUG, "Server listening on %s", server_address.c_str());     
 
+  //server->Wait();
+
   device.clear_device_summary();
   while (device.device_summary().compare("shutdown")!=0) {
     std::this_thread::sleep_for(std::chrono::seconds(2));
   }
 
-  //std::this_thread::sleep_for(std::chrono::seconds(2));
-  
-  server->Shutdown(); // //server->GetHealthCheckService();   //server->Wait();
+  server->Shutdown(); //server->GetHealthCheckService();   
 
   return 0;
 }
