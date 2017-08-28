@@ -41,11 +41,12 @@ using tr106::Board; // service Board {}
 
 static std::string get_localtime() {
   gpr_timespec now = gpr_now(GPR_CLOCK_REALTIME); // see grpc/src/core/lib/support/log_linux.c
-  time_t timer = (time_t)now.tv_sec;
+  time_t timer = (time_t)now.tv_sec; // int64_t tv_sec; int32_t tv_nsec
   struct tm tm;
   char time_buffer[64];
   localtime_r(&timer, &tm);
-  strftime(time_buffer, sizeof(time_buffer), "%m%d %H:%M:%S", &tm);
+  strftime(time_buffer, sizeof(time_buffer), "%m%d %H:%M:%S.", &tm);
+  sprintf(&time_buffer[14],"%09d",now.tv_nsec);
   std::string time_string(time_buffer);
   return time_string;
 }
@@ -77,8 +78,18 @@ public:
   Status SetPerformanceDiagnostic(ServerContext* context, const tr106::Device::Capabilities::PerformanceDiagnostic* request, BoardReply* reply) override { return Status::OK; }
 
   Status GetDeviceInfo(ServerContext* context, const BoardRequest* request, tr106::Device::DeviceInfo* reply) override {
-    gpr_log(GPR_DEBUG, "%s", __FUNCTION__);   
+    gpr_log(GPR_DEBUG, "%s", __FUNCTION__);    
+    std::string request_time = get_localtime();
+    static int static_latency = 5;
+    if (--static_latency == 0) {
+      static_latency = 5;
+    }
+    int latency = static_latency;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1000*latency));// std::this_thread::sleep_for(std::chrono::seconds(latency)); // To test an asynchronous client to call a remote method   
+    
     reply->set_up_time(std::chrono::duration_cast<std::chrono::seconds>(system_clock::now()-start_time_).count()); // elapsed time
+    std::string reply_time = get_localtime();    
+    reply->set_device_log("request_time " + request_time + " reply_time " + reply_time);
     return Status::OK;
   }
   

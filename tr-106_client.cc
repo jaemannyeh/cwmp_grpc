@@ -36,32 +36,22 @@ using tr106::BoardRequest;
 using tr106::BoardReply;
 using tr106::Board; // service Board {}
 
+static std::string get_localtime() {
+  gpr_timespec now = gpr_now(GPR_CLOCK_REALTIME); // see grpc/src/core/lib/support/log_linux.c
+  time_t timer = (time_t)now.tv_sec; // int64_t tv_sec; int32_t tv_nsec
+  struct tm tm;
+  char time_buffer[64];
+  localtime_r(&timer, &tm);
+  strftime(time_buffer, sizeof(time_buffer), "%m%d %H:%M:%S.", &tm);
+  sprintf(&time_buffer[14],"%09d",now.tv_nsec);
+  std::string time_string(time_buffer);
+  return time_string;
+}
+
 class BoardClient {
 public:
   BoardClient(std::shared_ptr<Channel> channel) : stub_(Board::NewStub(channel)) {
     gpr_log(GPR_DEBUG, "%s", __FUNCTION__);         
-  }
-
-  void GetDevice() {
-    gpr_log(GPR_DEBUG, "%s", __FUNCTION__);         
-    ClientContext context;
-    BoardRequest request;
-    tr106::Device device; // reply from the server
-    CompletionQueue queue;
-    Status status;
-    
-    std::unique_ptr<ClientAsyncResponseReader<tr106::Device>> reader(stub_->AsyncGetDevice(&context, request, &queue));
-    reader->Finish(&device, &status, (void*)1);
-    
-    void* tag;
-    bool ok = false;
-    queue.Next(&tag, &ok);
-    
-    if (!status.ok()) {
-      gpr_log(GPR_DEBUG, "rpc failed"); 
-      return;
-    }      
-    gpr_log(GPR_DEBUG, "device_summary %s", device.device_summary().c_str());
   }
 
   void SetDevice(bool shutdown=false) {
@@ -85,6 +75,7 @@ public:
     gpr_log(GPR_DEBUG, "%s", __FUNCTION__);  
     
     struct AsyncClientCall {
+        std::string request_time;
         tr106::Device::DeviceInfo info; // reply from the server
         ClientContext context;
         Status status; // Storage for the status of the RPC upon completion.
@@ -99,28 +90,30 @@ public:
         bool ok = false;
         int loop=0;
         
-        while (que->Next(&tag, &ok)) {
+        while (que->Next(&tag, &ok)) { // NextStatus AsyncNext (void **tag, bool *ok, const T &deadline)
           AsyncClientCall* call = static_cast<AsyncClientCall*>(tag);
           if (call->status.ok()) {
-            gpr_log(GPR_DEBUG, "up_time %d loop %d # ClientAsyncResponseReader", call->info.up_time(),loop++);
+            //gpr_log(GPR_DEBUG, "up_time %d request_time %s reply_time %s # ClientAsyncResponseReader", call->info.up_time(), call->request_time.c_str(), get_localtime().c_str());
+            gpr_log(GPR_DEBUG, "%s", call->info.device_log().c_str());
           } else {
             gpr_log(GPR_DEBUG, "rpc failed");             
           }
           delete call;
           
-          if (loop==4) {
+          if (++loop==4) {
             break;
           }
         }
     }); 
     
     for (int loop=0; loop<4; loop++) {
-      ClientContext context;
+      //ClientContext context;
       BoardRequest request;
       AsyncClientCall* call = new AsyncClientCall;
+      call->request_time = get_localtime();
       call->response_reader = stub_->AsyncGetDeviceInfo(&call->context, request, &queue);
-      call->response_reader->Finish(&call->info, &call->status, (void*)call);
-      //std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
+      call->response_reader->Finish(&call->info, &call->status, (void*)call); // Finish (R *msg, Status *status, void *tag)
+      //std::this_thread::sleep_for(std::chrono::milliseconds(1100)); // To test an asynchronous client to call a remote method
     }
     
     transmitter.join();
@@ -181,13 +174,11 @@ int RunClient(int mode) {
     return 0;
   }
   
-  client.GetDevice();
-  
   client.GetDeviceInfo(); // ClientAsyncResponseReader  
 
   client.GetTime();
   
-  client.GetUserInterface();
+  client.GetUserInterface(); // .proto type bytes
   
   return 0;
 }
