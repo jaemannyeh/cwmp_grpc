@@ -166,7 +166,7 @@ private:
   std::unique_ptr<Board::Stub> stub_;  
 };
 
-int RunClient(int mode) {
+static int RunClient(int mode) {
   BoardClient client(grpc::CreateChannel("localhost:50051",grpc::InsecureChannelCredentials()));
   
   if (mode==0) {
