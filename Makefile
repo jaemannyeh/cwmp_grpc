@@ -16,12 +16,6 @@ GRPC_PB_O_FILES := $(patsubst %.proto, %.grpc.pb.o, $(notdir $(PROTO_FILES)))
 
 default:
 
-tr-069: tr-069_topics tr-069_server tr-069_client
-
-tr-069_topics:
-	@echo topics : under construction
-	@echo
-
 tr-106: tr-106_topics tr-106_topics tr-106_server tr-106_client
 
 tr-106_topics:
